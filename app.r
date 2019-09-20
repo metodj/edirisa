@@ -18,7 +18,11 @@ ui <- fluidPage(
                            "MBB" = "mama",
                            "MoAT" = "mother",
                            "IoM" = "islands",
-                           "TH" = "tom")),
+                           "TH" = "tom",
+                           "Val" = "valley",
+                           "Isl" = "islands",
+                           "Lak" = "lakes",
+                           "Vol" = "volcano")),
           numericInput(inputId = "price",
                        label = "Price",
                        value = 1
@@ -28,7 +32,8 @@ ui <- fluidPage(
                        value = 3650
           ),selectInput(inputId = "allowance",
                         label = "Guides' allowance type",
-                        c("Unified" = "unified",
+                        c("Trek files" = "trek",
+                          "Unified" = "unified",
                           "Custom" = "custom")),
           actionButton("display", "Display")),
           column(4,
@@ -119,58 +124,60 @@ server <- function(input, output) {
   output$ui <- renderUI({
     if (input$allowance == 'unified') {
       numericInput(inputId = "enotni",
-                   label = "Guides' allowance",
+                   label = "Guides' allowance (USD)",
+                   value = 1, width = "20%"
+      )
+    } else if (input$allowance == 'custom'){
+      numericInput(inputId = "prvi",
+                   label = "1 (USD)",
                    value = 1, width = "20%"
       )
     } else {
-      numericInput(inputId = "prvi",
-                   label = "1",
-                   value = 1, width = "20%"
-      )
+      return()
     }
   })
   
   output$ui1 <- renderUI({
-    if (input$allowance == 'unified') {
-      return()
-    } else {
+    if (input$allowance == 'custom') {
       numericInput(inputId = "drugi",
-                   label = "2",
+                   label = "2 (USD)",
                    value = 1, width = "20%"
       )
+    } else {
+      return()
     }
   })
   
   output$ui2 <- renderUI({
-    if (input$allowance == 'unified') {
-      return()
-    } else {
+    if (input$allowance == 'custom') {
       numericInput(inputId = "tretji",
-                   label = "3",
+                   label = "3 (USD)",
                    value = 1, width = "20%"
       )
+    } else {
+      return()
     }
   })
   
   output$ui3 <- renderUI({
-    if (input$allowance == 'unified') {
-      return()
-    } else {
+    if (input$allowance == 'custom') {
       numericInput(inputId = "cetrti",
-                   label = "4",
+                   label = "4 (USD)",
                    value = 1, width = "20%"
       )
+    } else {
+      return()
     }
   })
   
   output$ui4 <- renderUI({
-    if (input$allowance == 'unified') {
-      return()
-    } else {
+    if (input$allowance == 'custom') {
       numericInput(inputId = "peti",
-                   label = "5+",
+                   label = "5+ (USD)",
                    value = 1, width = "20%"
       )
+    } else {
+      return()
     }
   })
   
@@ -179,8 +186,10 @@ server <- function(input, output) {
     dollar_rate <- input$dollarRate
     #guides_commision <- input$guidesCommission
     tura <- input$name
-    novice <- read.csv(paste(input$name, "_raw.csv", sep='')) #potem tu preberem csv z input$name
-    if (input$allowance == 'unified') {
+    novice <- read.csv(paste(tura, "_raw19.csv", sep='')) 
+    if (input$allowance == 'trek') {
+      novice$guides_cost <- novice$guiding
+    }else if (input$allowance == 'unified') {
       novice$guides_cost <- input$enotni * novice$guides
     } else {
       novice$guides_cost <- input$peti * novice$guides
@@ -189,17 +198,12 @@ server <- function(input, output) {
       novice$guides_cost[3] <- input$tretji
       novice$guides_cost[4] <- input$cetrti
     }
-    if (tura == 'mama'  || tura == 'islands' || tura == 'mother') {
-      novice$cost_pp <- round((novice$guides_cost + novice$dorm +
-                               novice$costs_ugx / dollar_rate) / novice$participants, 2)
-    } else {
-      novice$cost_pp <- round((novice$guides_cost + 
-                               novice$costs_ugx / dollar_rate) / novice$participants, 2)
-    }
     
-    novice$profit <- (novice$price_pp_USD - novice$cost_pp) * novice$participants * novice$nr_tours
+    novice$cost_pp <- round((novice$guides_cost + novice$USD.subtotal - novice$guiding + 
+                               novice$UGX.subtotal / dollar_rate) / novice$participants, 2)
+    novice$profit <- (novice$dollar.price - novice$cost_pp) * novice$participants * novice$nr_tours
     novice$profit_single_price <- (single_price - novice$cost_pp) * novice$participants * novice$nr_tours
-    novice <- novice[,c('participants', 'nr_tours', 'price_pp_USD', 'cost_pp', 'profit', 'profit_single_price' )]
+    novice <- novice[,c('participants', 'nr_tours', 'dollar.price', 'cost_pp', 'profit', 'profit_single_price' )]
     novice
   })
   
@@ -208,15 +212,21 @@ server <- function(input, output) {
     single_price <- input$price
     #guides_commision <- input$guidesCommission
     dollar_rate <- input$dollarRate
-    stroski <- read.csv(paste(tura,'_costs.csv', sep=''), sep=';', header=F)
+    stroski <- read.csv(paste(tura,'_costs19.csv', sep=''), sep=',', header=F)
     stroski <- t(stroski)
     rownames(stroski) <- c()
     colnames(stroski) = stroski[1, ]
     stroski = stroski[-1, ]
     stroski <- data.frame(stroski)
     stroski$guides <- as.numeric(as.character(stroski$guides))
+    stroski$USD.subtotal <- as.numeric(as.character(stroski$USD.subtotal))
+    stroski$UGX.subtotal <- as.numeric(as.character(stroski$UGX.subtotal))
+    stroski$guiding <- as.numeric(as.character(stroski$guiding))
+    stroski$participants <- as.numeric(as.character(stroski$participants))
     
-    if (input$allowance == 'unified') {
+    if (input$allowance == 'trek') {
+      stroski$guides_cost <- stroski$guiding
+    }else if (input$allowance == 'unified') {
       stroski$guides_cost <- input$enotni * stroski$guides
     } else {
       stroski$guides_cost <- input$peti * stroski$guides
@@ -227,27 +237,17 @@ server <- function(input, output) {
     }
     
     
-    if (tura == 'mama'  || tura == 'islands' || tura == 'mother') {
-      stroski <- stroski %>% transmute(participants = parse_number(participants),
-                                       guides_cost = parse_number(guides_cost),
-                                       dorm = parse_number(dorm),
-                                       costs_ugx = parse_number(costs_ugx))
-      stroski$cost_pp <- round((stroski$guides_cost + stroski$dorm +
-                                  stroski$costs_ugx / dollar_rate) / stroski$participants, 2)
-    } else {
-      stroski <- stroski %>% transmute(participants = parse_number(participants),
-                                       guides_cost = parse_number(guides_cost),
-                                       costs_ugx = parse_number(costs_ugx))
-      stroski$cost_pp <- round((stroski$guides_cost + 
-                                  stroski$costs_ugx / dollar_rate) / stroski$participants, 2)
-    }
+    
+    stroski$cost_pp <- round((stroski$guides_cost + stroski$USD.subtotal - stroski$guiding + 
+                                stroski$UGX.subtotal / dollar_rate) / stroski$participants, 2)
     
     
-    stroski <- stroski %>% transmute(participants = parse_number(participants), 
-                                     guides_cost = parse_number(guides_cost),
-                                     cost_pp = parse_number(cost_pp)) %>%
+    
+    stroski <- stroski  %>%
       mutate(profit = (single_price - cost_pp) * participants, VAT = profit * 0.82, comm = profit * 0.9,
              VAT_comm = profit * 0.82 * 0.9)
+    
+    stroski <- stroski[,!(names(stroski) %in% c("USD.subtotal", "UGX.subtotal", "dollar.price.", "guides", "guiding"))]
     stroski
   })
   
@@ -265,7 +265,7 @@ server <- function(input, output) {
   
   text <- eventReactive(input$display, {
     novice <- novice()
-    recommended_price <- round(sum(novice$participants*novice$nr_tours*novice$price_pp_USD) / sum(novice$participants*novice$nr_tours),2)
+    recommended_price <- round(sum(novice$participants*novice$nr_tours*novice$dollar.price) / sum(novice$participants*novice$nr_tours),2)
     paste("RECOMMENDED PRICE PER PERSON:", round(recommended_price, 2), '$')
   })
   
